@@ -231,7 +231,7 @@ else:
 
 
 # --------------------------------
-# 📊 Plotlyグラフ用共通関数
+# 📊 Plotlyグラフ用共通関数（エラー修正の安全版カラーマッピング）
 # --------------------------------
 def create_custom_chart(df, y_column, label_text, is_ascending=False, x_column="選手名"):
     if y_column not in df.columns:
@@ -239,10 +239,23 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False, x_column="
     df_sorted = df.sort_values(by=y_column, ascending=is_ascending)
     text_fmt = ".3f" if "打率" in y_column or y_column == "OPS" or y_column == "ISO" or "出塁" in y_column or "長打" in y_column else None
     
-    # セ・リーグ比較の時はベイスターズだけ球団カラーの青、他はグレーにする粋なカラー演出
+    # セ・リーグ比較の時はベイスターズだけ球団カラーの青、他はグレーにする演出
     if x_column == "チーム":
-        colors = ["#005bac" if team == "横浜DeNAベイスターズ" else "#a0b2c6" for team in df_sorted[x_column]]
-        fig = px.bar(df_sorted, x=x_column, y=y_column, text=y_column, color=x_column, color_discrete_sequence=colors)
+        fig = px.bar(
+            df_sorted, 
+            x=x_column, 
+            y=y_column, 
+            text=y_column, 
+            color=x_column, 
+            color_discrete_map={
+                "横浜DeNAベイスターズ": "#005bac",
+                "阪神タイガース": "#a0b2c6",
+                "東京ヤクルトスワローズ": "#a0b2c6",
+                "中日ドラゴンズ": "#a0b2c6",
+                "読売ジャイアンツ": "#a0b2c6",
+                "広島東洋カープ": "#a0b2c6"
+            }
+        )
         fig.update_layout(showlegend=False)
     else:
         fig = px.bar(df_sorted, x=x_column, y=y_column, text=y_column, color_discrete_sequence=["#005bac"])
@@ -263,7 +276,7 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False, x_column="
 
 
 # --------------------------------
-# 🏟️ 【新機能】セ・リーグ 6球団比較セクション
+# 🏟️ セ・リーグ 6球団比較セクション
 # --------------------------------
 st.markdown('<div class="stats-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">セ・リーグ チームスタッツ比較 (CENTRAL LEAGUE)</div>', unsafe_allow_html=True)
@@ -432,7 +445,7 @@ with col_kings_pit:
         st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">奪三振王</div><div class="trophy-name-luxury-mini">{top_k9["選手名"]}</div><div class="trophy-value-luxury-mini">{top_k9["K/9"]:.2f}</div></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">最高安定感</div><div class="trophy-name-luxury-mini">{top_whip["選手名"]}</div><div class="trophy-value-luxury-mini">{top_whip["WHIP"]:.2f}</div></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">ホールド王</div><div class="trophy-value-luxury-mini">{top_h_str}</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">登板王</div><div class="trophy-value-luxury-mini">{top_g_str}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">登板王</div><div class="trophy-name-luxury-mini">{top_g_str}</div></div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
