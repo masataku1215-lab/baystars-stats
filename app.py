@@ -166,16 +166,20 @@ st.markdown('<div class="sub-title">2026 SEASON STATS</div>', unsafe_allow_html=
 # --------------------------------
 batting_csv_path = "baystars_batting.csv"
 pitching_csv_path = "baystars_pitching.csv"
-team_batting_csv_path = "baystars_team_batting.csv"
-team_pitching_csv_path = "baystars_team_pitching.csv"
+cl_stats_csv_path = "central_league_stats.csv"
 
 try:
     batting_df = pd.read_csv(batting_csv_path)
     pitching_df = pd.read_csv(pitching_csv_path)
     
-    # チーム成績CSV（存在しない場合はエラーにせずダミー表示にする安全設計）
-    team_batting_df = pd.read_csv(team_batting_csv_path) if os.path.exists(team_batting_csv_path) else pd.DataFrame()
-    team_pitching_df = pd.read_csv(team_pitching_csv_path) if os.path.exists(team_pitching_csv_path) else pd.DataFrame()
+    # セ・リーグ比較CSV（安全設計：存在しない場合はダミー作成）
+    if os.path.exists(cl_stats_csv_path):
+        cl_df = pd.read_csv(cl_stats_csv_path)
+        # 出塁率と長打率からOPSを自動計算して列を追加
+        if "出塁率" in cl_df.columns and "長打率" in cl_df.columns:
+            cl_df["チームOPS"] = cl_df["出塁率"] + cl_df["長打率"]
+    else:
+        cl_df = pd.DataFrame()
 except Exception as e:
     st.error(f"⚠️ データの読み込み中にエラーが発生しました。")
     st.stop()
@@ -229,19 +233,27 @@ else:
 # --------------------------------
 # 📊 Plotlyグラフ用共通関数
 # --------------------------------
-def create_custom_chart(df, y_column, label_text, is_ascending=False):
+def create_custom_chart(df, y_column, label_text, is_ascending=False, x_column="選手名"):
     if y_column not in df.columns:
         return None
     df_sorted = df.sort_values(by=y_column, ascending=is_ascending)
-    text_fmt = ".3f" if "打率" in y_column or y_column == "OPS" or y_column == "ISO" else None
-    fig = px.bar(df_sorted, x="選手名", y=y_column, text=y_column, color_discrete_sequence=["#005bac"])
+    text_fmt = ".3f" if "打率" in y_column or y_column == "OPS" or y_column == "ISO" or "出塁" in y_column or "長打" in y_column else None
+    
+    # セ・リーグ比較の時はベイスターズだけ球団カラーの青、他はグレーにする粋なカラー演出
+    if x_column == "チーム":
+        colors = ["#005bac" if team == "横浜DeNAベイスターズ" else "#a0b2c6" for team in df_sorted[x_column]]
+        fig = px.bar(df_sorted, x=x_column, y=y_column, text=y_column, color=x_column, color_discrete_sequence=colors)
+        fig.update_layout(showlegend=False)
+    else:
+        fig = px.bar(df_sorted, x=x_column, y=y_column, text=y_column, color_discrete_sequence=["#005bac"])
+        
     fig.update_layout(
         xaxis_title=None, yaxis_title=f"数値 ({label_text})",
         font=dict(size=12, color="#111111", family="sans-serif"),
         margin=dict(l=10, r=10, t=25, b=40), height=280,
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
     )
-    fig.update_xaxes(tickangle=45, tickfont=dict(size=11, weight="bold", color="#111111"))
+    fig.update_xaxes(tickangle=30 if x_column == "チーム" else 45, tickfont=dict(size=11, weight="bold", color="#111111"))
     fig.update_yaxes(tickfont=dict(size=11, weight="bold", color="#111111"), gridcolor="#cce4ff")
     if text_fmt:
         fig.update_traces(texttemplate='%{text:' + text_fmt + '}', textposition='outside', textfont_size=10, textfont_color="#111111", textfont_weight="bold")
@@ -251,39 +263,33 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False):
 
 
 # --------------------------------
-# 🏟️ 【新機能】チーム総合成績セクション
+# 🏟️ 【新機能】セ・リーグ 6球団比較セクション
 # --------------------------------
 st.markdown('<div class="stats-card">', unsafe_allow_html=True)
-st.markdown('<div class="section-title">チーム総合成績 (TEAM STATS)</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">セ・リーグ チームスタッツ比較 (CENTRAL LEAGUE)</div>', unsafe_allow_html=True)
 
-# CSVがある場合は読み込み、ない場合は紹介用のサンプル値を表示
-if not team_batting_df.empty and not team_pitching_df.empty:
-    tb = team_batting_df.iloc[0]
-    tp = team_pitching_df.iloc[0]
-    t_runs = tb.get("得点", 0)
-    t_avg = tb.get("打率", 0.0)
-    t_ops = tb.get("OPS", 0.0)
-    t_era = tp.get("防御率", 0.0)
-    t_whip = tp.get("WHIP", 0.0)
-    t_so = tp.get("奪三振", 0)
+if not cl_df.empty:
+    # チーム比較用のワイドデータ表
+    st.dataframe(cl_df, use_container_width=True, hide_index=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 左右に並べてグラフ比較
+    cl_col_left, cl_col_right = st.columns(2)
+    with cl_col_left:
+        st.markdown('<div style="font-weight: bold; color: #031c3c; margin-bottom: 5px; font-size: 15px;">📊 チーム打率ランキング</div>', unsafe_allow_html=True)
+        st.plotly_chart(create_custom_chart(cl_df, "チーム打率", "打率", False, x_column="チーム"), use_container_width=True, config={'displayModeBar': False})
+        
+        st.markdown('<div style="font-weight: bold; color: #031c3c; margin-top: 15px; margin-bottom: 5px; font-size: 15px;">📊 チーム総得点ランキング</div>', unsafe_allow_html=True)
+        st.plotly_chart(create_custom_chart(cl_df, "得点", "得点", False, x_column="チーム"), use_container_width=True, config={'displayModeBar': False})
+
+    with cl_col_right:
+        st.markdown('<div style="font-weight: bold; color: #031c3c; margin-bottom: 5px; font-size: 15px;">📊 チーム最高OPSランキング</div>', unsafe_allow_html=True)
+        st.plotly_chart(create_custom_chart(cl_df, "チームOPS", "OPS", False, x_column="チーム"), use_container_width=True, config={'displayModeBar': False})
+        
+        st.markdown('<div style="font-weight: bold; color: #031c3c; margin-top: 15px; margin-bottom: 5px; font-size: 15px;">📊 チーム総本塁打ランキング</div>', unsafe_allow_html=True)
+        st.plotly_chart(create_custom_chart(cl_df, "本塁打", "本塁打", False, x_column="チーム"), use_container_width=True, config={'displayModeBar': False})
 else:
-    # CSVが配置されるまでのプレースホルダー（サンプル値）
-    t_runs, t_avg, t_ops, t_era, t_whip, t_so = "---", 0.255, 0.710, 3.45, 1.28, "---"
-
-# メーターを横並びに配置
-t_col1, t_col2, t_col3, t_col4, t_col5, t_col6 = st.columns(6)
-with t_col1:
-    st.metric(label="チーム防御率", value=f"{t_era:.2f}" if isinstance(t_era, float) else t_era)
-with t_col2:
-    st.metric(label="チーム打率", value=f"{t_avg:.3f}" if isinstance(t_avg, float) else t_avg)
-with t_col3:
-    st.metric(label="チームOPS", value=f"{t_ops:.3f}" if isinstance(t_ops, float) else t_ops)
-with t_col4:
-    st.metric(label="チームWHIP", value=f"{t_whip:.2f}" if isinstance(t_whip, float) else t_whip)
-with t_col5:
-    st.metric(label="総得点", value=f"{int(t_runs)}点" if isinstance(t_runs, (int, float)) else t_runs)
-with t_col6:
-    st.metric(label="総奪三振", value=f"{int(t_so)}個" if isinstance(t_so, (int, float)) else t_so)
+    st.info("💡 GitHubに `central_league_stats.csv` をアップロードすると、ここに6球団の比較表とグラフが自動生成されます。")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
