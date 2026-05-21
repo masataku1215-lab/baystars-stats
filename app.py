@@ -12,17 +12,15 @@ st.set_page_config(
 )
 
 # --------------------------------
-# ベイスターズ風CSS（図解通りの黄金比レイアウト）
+# ベイスターズ風CSS（高級感溢れる球団ネイビー＆ブルー）
 # --------------------------------
 st.markdown("""
 <style>
-/* 背景グラデーションと全体のフォント指定 */
 .stApp {
     background-color: #dff3ff;
     background-image: linear-gradient(to bottom, #dff3ff, #f7fbff);
     font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
 }
-/* タイトルエリア */
 .main-title {
     font-size: 38px;
     font-weight: bold;
@@ -38,7 +36,6 @@ st.markdown("""
     margin-bottom: 30px;
     font-weight: 500;
 }
-/* 白背景の大きなカード */
 .stats-card {
     background-color: white;
     border-radius: 15px;
@@ -46,7 +43,6 @@ st.markdown("""
     box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.05);
     margin-bottom: 30px;
 }
-/* セクションタイトル */
 .section-title {
     font-size: 24px;
     font-weight: bold;
@@ -56,10 +52,22 @@ st.markdown("""
     margin-bottom: 15px;
 }
 
-/* 👑 横2列のコンパクト高級カード */
+/* 👑 チーム成績・大型メーター用カスタム */
+[data-testid="stMetricValue"] {
+    font-size: 32px !important;
+    font-weight: bold !important;
+    color: #005bac !important;
+}
+[data-testid="stMetricLabel"] {
+    font-size: 14px !important;
+    font-weight: bold !important;
+    color: #5c7080 !important;
+}
+
+/* 横2列のコンパクト高級カード */
 .trophy-grid-compact-2col {
     display: grid;
-    grid-template-columns: repeat(2, 1fr); /* 綺麗な横2列 */
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
 }
 .trophy-card-luxury-mini {
@@ -124,7 +132,6 @@ st.markdown("""
     font-size: 14px;
     font-weight: bold;
 }
-/* ポップアップ */
 div[data-testid="stPopover"] button {
     background-color: #e8f4ff;
     color: #005bac;
@@ -132,7 +139,6 @@ div[data-testid="stPopover"] button {
     border-radius: 8px;
     font-weight: bold;
 }
-/* タブ */
 .stTabs [data-baseweb="tab"] {
     background-color: #f0f7ff !important;
     border: 1px solid #cce4ff !important;
@@ -156,20 +162,27 @@ st.markdown('<div class="main-title">横浜DeNAベイスターズ 成績アプ�
 st.markdown('<div class="sub-title">2026 SEASON STATS</div>', unsafe_allow_html=True)
 
 # --------------------------------
-# ファイル読み込み（ネット公開用のシンプルな書き方に修正）
+# ファイル読み込み（ネット公開用のシンプルな書き方）
 # --------------------------------
 batting_csv_path = "baystars_batting.csv"
 pitching_csv_path = "baystars_pitching.csv"
+team_batting_csv_path = "baystars_team_batting.csv"
+team_pitching_csv_path = "baystars_team_pitching.csv"
 
 try:
     batting_df = pd.read_csv(batting_csv_path)
     pitching_df = pd.read_csv(pitching_csv_path)
-except FileNotFoundError as e:
-    st.error(f"⚠️ CSVファイルが見つかりません。")
+    
+    # チーム成績CSV（存在しない場合はエラーにせずダミー表示にする安全設計）
+    team_batting_df = pd.read_csv(team_batting_csv_path) if os.path.exists(team_batting_csv_path) else pd.DataFrame()
+    team_pitching_df = pd.read_csv(team_pitching_csv_path) if os.path.exists(team_pitching_csv_path) else pd.DataFrame()
+except Exception as e:
+    st.error(f"⚠️ データの読み込み中にエラーが発生しました。")
     st.stop()
 
+
 # --------------------------------
-# 🧮 サイドバー予測（完全真っ黒文字固定）
+# 🧮 サイドバー予測
 # --------------------------------
 st.sidebar.markdown("<h2>🧮 フル出場シミュレーター</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='font-size:14px;'>選手の現在のペースのままフル出場した場合の妄想成績を計算！</p>", unsafe_allow_html=True)
@@ -179,55 +192,38 @@ sim_mode = st.sidebar.radio("設定する対象", ["打者を選ぶ", "投手を
 if sim_mode == "打者を選ぶ":
     selected_player = st.sidebar.selectbox("選手名", batting_df["選手名"].unique())
     p_data = batting_df[batting_df["選手名"] == selected_player].iloc[0]
-    
     current_pa = p_data.get("打席", p_data.get("打席数", 0))
     if current_pa > 0:
         target_pa = st.sidebar.slider("目標の年間総打席数", min_value=100, max_value=650, value=443, step=10)
         scale = target_pa / current_pa
-        
         st.sidebar.markdown(f"<h3>📈 {selected_player} 選手の予測</h3>", unsafe_allow_html=True)
-        st.sidebar.markdown(f"<p>現在打席: <b>{int(current_pa)}</b> → 目標: <b>{target_pa}</b></p>", unsafe_allow_html=True)
-        
         pred_hr = round(p_data.get("本塁打", 0) * scale, 1)
         pred_rbi = round(p_data.get("打点", 0) * scale, 1)
         pred_hits = round(p_data.get("安打", p_data.get("安打数", 0)) * scale, 1)
-        
         st.sidebar.markdown(f"""
         <div class="sim-result-box-blacktext">
             <span>🦖 <b>予測本塁打:</b></span> <span style="font-size:22px;">{pred_hr}</span> <span>本</span><br>
             <span>🔥 <b>予測打点:</b></span> <span>{pred_rbi}</span> <span>点</span><br>
             <span>⚔️ <b>予測安打:</b></span> <span>{pred_hits}</span> <span>本</span><br>
-            <small style="display:inline-block; margin-top:5px;">※現在のペースを維持した計算値です</small>
         </div>
         """, unsafe_allow_html=True)
-    else:
-        st.sidebar.warning("打席データが0です。")
-
 else:
     selected_player = st.sidebar.selectbox("選手名", pitching_df["選手名"].unique())
     p_data = pitching_df[pitching_df["選手名"] == selected_player].iloc[0]
-    
     current_ip = p_data.get("投球回", p_data.get("投球回数", 0))
     if current_ip > 0:
         target_ip = st.sidebar.slider("目標の年間総投球回", min_value=10, max_value=200, value=143, step=5)
         scale = target_ip / current_ip
-        
         st.sidebar.markdown(f"<h3>📈 {selected_player} 選手の予測</h3>", unsafe_allow_html=True)
-        st.sidebar.markdown(f"<p>現在回数: <b>{current_ip}</b> → 目標: <b>{target_ip}</b></p>", unsafe_allow_html=True)
-        
         pred_so = round(p_data.get("奪三振", 0) * scale, 1)
         pred_w = round(p_data.get("勝利", p_data.get("勝", 0)) * scale, 1)
-        
         st.sidebar.markdown(f"""
         <div class="sim-result-box-blacktext">
             <span>⛑️ <b>予測奪三振:</b></span> <span style="font-size:22px;">{pred_so}</span> <span>個</span><br>
             <span>👑 <b>予測勝利数:</b></span> <span>{pred_w}</span> <span>勝</span><br>
             <span>⭐ <b>現在の防御率:</b></span> <span>{p_data.get('防御率', 0)}</span><br>
-            <small style="display:inline-block; margin-top:5px;">※現在の安定感を維持した場合の計算値です</small>
         </div>
         """, unsafe_allow_html=True)
-    else:
-        st.sidebar.warning("投球回データが0です。")
 
 
 # --------------------------------
@@ -237,9 +233,7 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False):
     if y_column not in df.columns:
         return None
     df_sorted = df.sort_values(by=y_column, ascending=is_ascending)
-    # 打率や得点圏打率などは小数点以下3桁、それ以外は通常表示にするテキストフォーマット
-    text_fmt = ".3f" if "打率" in y_column or y_column == "OPS" else None
-    
+    text_fmt = ".3f" if "打率" in y_column or y_column == "OPS" or y_column == "ISO" else None
     fig = px.bar(df_sorted, x="選手名", y=y_column, text=y_column, color_discrete_sequence=["#005bac"])
     fig.update_layout(
         xaxis_title=None, yaxis_title=f"数値 ({label_text})",
@@ -249,7 +243,6 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False):
     )
     fig.update_xaxes(tickangle=45, tickfont=dict(size=11, weight="bold", color="#111111"))
     fig.update_yaxes(tickfont=dict(size=11, weight="bold", color="#111111"), gridcolor="#cce4ff")
-    
     if text_fmt:
         fig.update_traces(texttemplate='%{text:' + text_fmt + '}', textposition='outside', textfont_size=10, textfont_color="#111111", textfont_weight="bold")
     else:
@@ -258,10 +251,48 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False):
 
 
 # --------------------------------
-# 🏏 打撃成績セクション
+# 🏟️ 【新機能】チーム総合成績セクション
 # --------------------------------
 st.markdown('<div class="stats-card">', unsafe_allow_html=True)
-st.markdown('<div class="section-title">打撃成績</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">チーム総合成績 (TEAM STATS)</div>', unsafe_allow_html=True)
+
+# CSVがある場合は読み込み、ない場合は紹介用のサンプル値を表示
+if not team_batting_df.empty and not team_pitching_df.empty:
+    tb = team_batting_df.iloc[0]
+    tp = team_pitching_df.iloc[0]
+    t_runs = tb.get("得点", 0)
+    t_avg = tb.get("打率", 0.0)
+    t_ops = tb.get("OPS", 0.0)
+    t_era = tp.get("防御率", 0.0)
+    t_whip = tp.get("WHIP", 0.0)
+    t_so = tp.get("奪三振", 0)
+else:
+    # CSVが配置されるまでのプレースホルダー（サンプル値）
+    t_runs, t_avg, t_ops, t_era, t_whip, t_so = "---", 0.255, 0.710, 3.45, 1.28, "---"
+
+# メーターを横並びに配置
+t_col1, t_col2, t_col3, t_col4, t_col5, t_col6 = st.columns(6)
+with t_col1:
+    st.metric(label="チーム防御率", value=f"{t_era:.2f}" if isinstance(t_era, float) else t_era)
+with t_col2:
+    st.metric(label="チーム打率", value=f"{t_avg:.3f}" if isinstance(t_avg, float) else t_avg)
+with t_col3:
+    st.metric(label="チームOPS", value=f"{t_ops:.3f}" if isinstance(t_ops, float) else t_ops)
+with t_col4:
+    st.metric(label="チームWHIP", value=f"{t_whip:.2f}" if isinstance(t_whip, float) else t_whip)
+with t_col5:
+    st.metric(label="総得点", value=f"{int(t_runs)}点" if isinstance(t_runs, (int, float)) else t_runs)
+with t_col6:
+    st.metric(label="総奪三振", value=f"{int(t_so)}個" if isinstance(t_so, (int, float)) else t_so)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+
+# --------------------------------
+# 🏏 個人打撃成績セクション
+# --------------------------------
+st.markdown('<div class="stats-card">', unsafe_allow_html=True)
+st.markdown('<div class="section-title">個人打撃成績</div>', unsafe_allow_html=True)
 
 col_search_bat, col_note_bat = st.columns([2, 1])
 with col_search_bat:
@@ -273,7 +304,6 @@ disp_batting = batting_df.copy()
 if batting_search:
     disp_batting = disp_batting[disp_batting["選手名"].astype(str).str.contains(batting_search, case=False, na=False)]
 
-# 上段：表をワイドに配置
 with st.popover("📊 打撃指標の見方・目安"):
     st.markdown("""
     ### 📋 主要打撃指標の解説と基準
@@ -281,23 +311,17 @@ with st.popover("📊 打撃指標の見方・目安"):
     * **得点圏打率**: ランナーが二塁または三塁のチャンスの時の打率。
     * **OPS**: 出塁率 ＋ 長打率。得点貢献度を表す最重要指標。 [.700(平均) / .800(優秀) / .900〜(超一流)]
     * **ISO**: 長打率 － 打率。純粋な「長打力」を測る指標。 [.140(平均) / .200(優秀・長距離砲) / .250〜(超一流)]
-    * **BABIP**: 本塁打・三振を除くグラウンドに飛んだ打球が安打になる確率。 [プロ平均は常時.300前後に収束。高すぎると運が良い、低すぎると不運]
+    * **BABIP**: 本塁打・三振を除くグラウンドに飛んだ打球が安打になる確率。 [プロ平均は.300前後に収束。高すぎると運が良い、低すぎると不運]
     * **RC27**: その打者1人で1試合（27アウト）戦った場合の予測総得点。 [4.0〜4.5(平均) / 6.0(優秀) / 8.0〜(リーグ最強クラス)]
     """)
 st.dataframe(disp_batting, use_container_width=True, hide_index=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 下段：グラフとチーム王を左右に配置
 col_graph_bat, col_kings_bat = st.columns([55, 45])
-
 with col_graph_bat:
     st.markdown('<div style="font-weight: bold; color: #031c3c; margin-bottom: 5px; font-size: 15px;">📊 打者ランキング</div>', unsafe_allow_html=True)
-    
-    # ★得点圏打率とISOを追加した、新ランキングタブ
-    tab_labels = ["打率", "得点圏打率", "OPS", "ISO", "本塁打", "打点"]
-    bat_rank_tabs = st.tabs(tab_labels)
-    
+    bat_rank_tabs = st.tabs(["打率", "得点圏打率", "OPS", "ISO", "本塁打", "打点"])
     with bat_rank_tabs[0]:
         st.plotly_chart(create_custom_chart(batting_df, "打率", "打率", False), use_container_width=True, config={'displayModeBar': False})
     with bat_rank_tabs[1]:
@@ -325,7 +349,6 @@ with col_kings_bat:
         top_ops = batting_df.sort_values(by="OPS", ascending=False).iloc[0]
         top_hr = batting_df.sort_values(by="本塁打", ascending=False).iloc[0]
         top_rbi = batting_df.sort_values(by="打点", ascending=False).iloc[0]
-        
         sb_col = "盗塁" if "盗塁" in batting_df.columns else ("盗塁数" if "盗塁数" in batting_df.columns else None)
         top_sb_name = batting_df.sort_values(by=sb_col, ascending=False).iloc[0]['選手名'] if sb_col else "データなし"
         top_sb_val = f"{int(batting_df.sort_values(by=sb_col, ascending=False).iloc[0][sb_col])}個" if sb_col else ""
@@ -341,10 +364,10 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 
 # --------------------------------
-# 🛑 投手成績セクション（バグ修正・大復活版）
+# 🛑 個人投手成績セクション
 # --------------------------------
 st.markdown('<div class="stats-card">', unsafe_allow_html=True)
-st.markdown('<div class="section-title">投手成績</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">個人投手成績</div>', unsafe_allow_html=True)
 
 col_search_pit, col_note_pit = st.columns([2, 1])
 with col_search_pit:
@@ -356,7 +379,6 @@ disp_pitching = pitching_df.copy()
 if pitching_search:
     disp_pitching = disp_pitching[disp_pitching["選手名"].astype(str).str.contains(pitching_search, case=False, na=False)]
 
-# 上段：データ表をワイドに配置（復活確認用の最重要エリア）
 with st.popover("📊 投手指標の見方・目安"):
     st.markdown("""
     ### 📋 主要投手指標の解説と基準
@@ -369,9 +391,7 @@ st.dataframe(disp_pitching, use_container_width=True, hide_index=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 下段：グラフとチーム王
 col_graph_pit, col_kings_pit = st.columns([55, 45])
-
 with col_graph_pit:
     st.markdown('<div style="font-weight: bold; color: #031c3c; margin-bottom: 5px; font-size: 15px;">📊 投手ランキング</div>', unsafe_allow_html=True)
     pit_rank_tabs = st.tabs(["防御率", "K/9", "BB/9", "WHIP"])
@@ -391,27 +411,14 @@ with col_kings_pit:
         top_k9 = pitching_df.sort_values(by="K/9", ascending=False).iloc[0]
         top_whip = pitching_df.sort_values(by="WHIP", ascending=True).iloc[0]
         
-        # カラム名の有無を安全に判定して文字列を作成（バグの原因を根本解決）
         w_col = "勝利" if "勝利" in pitching_df.columns else ("勝" if "勝" in pitching_df.columns else None)
-        if w_col:
-            top_w_row = pitching_df.sort_values(by=w_col, ascending=False).iloc[0]
-            top_w_str = f'{top_w_row["選手名"]}<br>{int(top_w_row[w_col])}勝'
-        else:
-            top_w_str = "データなし"
+        top_w_str = f'{pitching_df.sort_values(by=w_col, ascending=False).iloc[0]["選手名"]}<br>{int(pitching_df.sort_values(by=w_col, ascending=False).iloc[0][w_col])}勝' if w_col else "データなし"
             
         h_col = "ホールド" if "ホールド" in pitching_df.columns else ("HP" if "HP" in pitching_df.columns else None)
-        if h_col:
-            top_h_row = pitching_df.sort_values(by=h_col, ascending=False).iloc[0]
-            top_h_str = f'{top_h_row["選手名"]}<br>{int(top_h_row[h_col])}HP'
-        else:
-            top_h_str = "データなし"
+        top_h_str = f'{pitching_df.sort_values(by=h_col, ascending=False).iloc[0]["選手名"]}<br>{int(pitching_df.sort_values(by=h_col, ascending=False).iloc[0][h_col])}HP' if h_col else "データなし"
             
         g_col = "登板" if "登板" in pitching_df.columns else ("試合" if "試合" in pitching_df.columns else ("試合数" if "試合数" in pitching_df.columns else None))
-        if g_col:
-            top_g_row = pitching_df.sort_values(by=g_col, ascending=False).iloc[0]
-            top_g_str = f'{top_g_row["選手名"]}<br>{int(top_g_row[g_col])}試合'
-        else:
-            top_g_str = "データなし"
+        top_g_str = f'{pitching_df.sort_values(by=g_col, ascending=False).iloc[0]["選手名"]}<br>{int(pitching_df.sort_values(by=g_col, ascending=False).iloc[0][g_col])}試合' if g_col else "データなし"
         
         st.markdown('<div class="trophy-grid-compact-2col">', unsafe_allow_html=True)
         st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">最優秀防御率</div><div class="trophy-name-luxury-mini">{top_era["選手名"]}</div><div class="trophy-value-luxury-mini">{top_era["防御率"]:.2f}</div></div>', unsafe_allow_html=True)
