@@ -84,6 +84,31 @@ st.markdown("""
     margin-top: 2px;
 }
 
+/* 🧭 指標解説用のスタイル */
+.desc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 15px;
+    margin-top: 10px;
+}
+.desc-card {
+    background-color: #f8fba5; /* 優しいゴールド・イエロー系 */
+    border: 1px solid #e1e58b;
+    border-radius: 8px;
+    padding: 12px;
+}
+.desc-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #031c3c;
+    margin-bottom: 4px;
+}
+.desc-text {
+    font-size: 12px;
+    color: #4a5568;
+    line-height: 1.4;
+}
+
 /* 🧮 サイドバー設定 */
 [data-testid="stSidebar"] {
     background-color: #031c3c !important;
@@ -110,42 +135,13 @@ st.markdown("""
     font-weight: bold !important;
 }
 
-/* 👑 選手用の王様タイル */
-.trophy-grid-compact-2col {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-}
-.trophy-card-luxury-mini {
-    background: linear-gradient(135deg, #fffef9 0%, #fffbdf 100%);
-    border: 1px solid #ffe599;
-    border-radius: 8px;
-    padding: 8px 10px;
-    text-align: center;
-}
-.trophy-title-luxury-mini {
-    font-size: 11px;
-    color: #b38600;
-    font-weight: bold;
-}
-.trophy-name-luxury-mini {
-    font-size: 15px;
-    color: #031c3c;
-    font-weight: bold;
-}
-.trophy-value-luxury-mini {
-    font-size: 13px;
-    color: #cc0000;
-    font-weight: bold;
-}
-
 /* テーブル調整 */
 [data-testid="stDataFrame"] {
     border-radius: 10px;
     overflow: hidden;
 }
 
-/* メインタブ（大きなタブ）のスタイルカスタム */
+/* タブのスタイルカスタム */
 .stTabs [data-baseweb="tab"] {
     font-size: 16px !important;
     font-weight: bold !important;
@@ -252,25 +248,20 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False, x_column="
 
 
 # --------------------------------
-# 🏟️ セ・リーグ チームスタッツ比較（打撃・投手切り替えタブ化）
+# 🏟️ セ・リーグ チームスタッツ比較（打撃・投手タブ）
 # --------------------------------
 st.markdown('<div class="stats-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">セ・リーグ チームスタッツ比較 (CENTRAL LEAGUE)</div>', unsafe_allow_html=True)
 
-# 球団カラーマッピングの定義
 team_colors = {
-    "横浜DeNAベイスターズ": "#005bac", 
-    "阪神タイガース": "#ffc107", 
-    "読売ジャイアンツ": "#ff6600", 
-    "東京ヤクルトスワローズ": "#228b22", 
-    "広島東洋カープ": "#ff0000", 
-    "中日ドラゴンズ": "#002f6c"
+    "横浜DeNAベイスターズ": "#005bac", "阪神タイガース": "#ffc107", 
+    "読売ジャイアンツ": "#ff6600", "東京ヤクルトスワローズ": "#228b22", 
+    "広島東洋カープ": "#ff0000", "中日ドラゴンズ": "#002f6c"
 }
 
-# 大きなタブで打撃と投手を切り替え
 main_tabs = st.tabs(["🏏 チーム打撃成績比較", "🛑 チーム投球成績比較"])
 
-# --- 1. 打撃成績タブ ---
+# --- 1. チーム打撃成績タブ ---
 with main_tabs[0]:
     if not cl_bat_df.empty:
         st.dataframe(cl_bat_df, use_container_width=True, hide_index=True)
@@ -321,10 +312,17 @@ with main_tabs[0]:
                 <div class="cl-king-card"><div class="cl-king-title">盗塁王</div><div class="cl-king-team">{k_sb['チーム']}</div><div class="cl-king-value">{int(k_sb['盗塁'])}個</div></div>
             </div>
             """, unsafe_allow_html=True)
+
+        # 📄 打撃指標の説明カードを追加！
+        st.markdown('<div class="desc-grid">'
+                    '<div class="desc-card"><div class="desc-title">📊 チームOPS</div><div class="desc-text">出塁率＋長打率で算出。チームの得点効率と最も相関が高い、現代野球の超重要指標。</div></div>'
+                    '<div class="desc-card"><div class="desc-title">🎯 出塁率</div><div class="desc-text">安打、四球、死球で出塁した割合。どれだけ相手投手に球数を投げさせ、塁に出られたかを表す。</div></div>'
+                    '<div class="desc-card"><div class="desc-title">併殺打・三振(少)</div><div class="desc-text">レーダー上では、数が「少ない」ほど外側にピンと尖り、チャンスに強いクオリティの高い打線であることを示します。</div></div>'
+                    '</div>', unsafe_allow_html=True)
     else:
         st.info("💡 GitHubに `central_league_stats.csv` をアップロードしてください。")
 
-# --- 2. 投手成績タブ（新規追加！） ---
+# --- 2. チーム投手成績タブ ---
 with main_tabs[1]:
     if not cl_pitch_df.empty:
         st.dataframe(cl_pitch_df, use_container_width=True, hide_index=True)
@@ -332,7 +330,6 @@ with main_tabs[1]:
 
         cl_pitch_radar, cl_pitch_kings = st.columns([6, 4])
         with cl_pitch_radar:
-            # 投手力を測る10個の主要指標
             pitch_features = ["防御率", "失点", "自責点", "安打", "本塁打", "四球", "三振", "WHIP", "セーブ", "ホールド"]
             actual_pitch_features = [f for f in pitch_features if f in cl_pitch_df.columns]
             
@@ -340,16 +337,12 @@ with main_tabs[1]:
             for idx, row in cl_pitch_df.iterrows():
                 for f in actual_pitch_features:
                     max_v, min_v = cl_pitch_df[f].max(), cl_pitch_df[f].min()
-                    
-                    # 💡 低いほうが優秀な指標（防御率、失点、自責点、被安打、被本塁打、与四球、WHIP）は計算を反転！
                     if f in ["防御率", "失点", "自責点", "安打", "本塁打", "四球", "WHIP"]:
                         score = (max_v - row[f]) / (max_v - min_v) if max_v != min_v else 1.0
                         label_name = f"{f}(少)"
                     else:
-                        # 高いほうが優秀な指標（三振、セーブ、ホールド）
                         score = row[f] / max_v if max_v != 0 else 0.0
                         label_name = f
-                        
                     pitch_radar_list.append({"チーム": row["チーム"], "項目": label_name, "スコア": score, "値": row[f]})
             
             fig_pitch_radar = px.line_polar(pd.DataFrame(pitch_radar_list), r="スコア", theta="項目", color="チーム", line_close=True)
@@ -366,8 +359,6 @@ with main_tabs[1]:
 
         with cl_pitch_kings:
             st.markdown('<div style="font-weight: bold; color: #b38600; text-align: center; margin-bottom: 10px;">👑 セ・リーグ投手部門トップ</div>', unsafe_allow_html=True)
-            
-            # 各部門トップチームの計算（低いほうが良いもの、高いほうが良いものを考慮）
             kp_era = cl_pitch_df.sort_values(by="防御率", ascending=True).iloc[0]
             kp_so = cl_pitch_df.sort_values(by="三振", ascending=False).iloc[0]
             kp_whip = cl_pitch_df.sort_values(by="WHIP", ascending=True).iloc[0]
@@ -385,26 +376,63 @@ with main_tabs[1]:
                 <div class="cl-king-card"><div class="cl-king-title">最多勝王</div><div class="cl-king-team">{kp_win['チーム']}</div><div class="cl-king-value">{int(kp_win['勝利'])}勝</div></div>
             </div>
             """, unsafe_allow_html=True)
+
+        # 📄 投手指標の説明カードを追加！
+        st.markdown('<div class="desc-grid">'
+                    '<div class="desc-card"><div class="desc-title">🛡️ WHIP</div><div class="desc-text">「1イニングあたりに許した走者（安打＋四球）」の数。1.10台なら超エース級、低いほど走者を出さない鉄壁の投手力。</div></div>'
+                    '<div class="desc-card"><div class="desc-title">📉 防御率・失点(少)</div><div class="desc-text">投手成績は低いほど優秀なため、計算を反転しています。レーダーが外に広がっているほど「失点しない強力な投手陣」を表します。</div></div>'
+                    '</div>', unsafe_allow_html=True)
     else:
-        st.info("💡 GitHubに `central_league_pitching.csv` をアップロードすると、ここに投手レーダーチャートが自動生成されます。")
+        st.info("💡 GitHubに `central_league_pitching.csv` をアップロードしてください。")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
 
 # --------------------------------
-# 🏏 個人打撃・投手セクション
+# 🏏 個人打撃成績セクション（完全バグ修正版）
 # --------------------------------
-st.markdown('<div class="stats-card"><div class="section-title">個人打撃成績</div>', unsafe_allow_html=True)
+st.markdown('<div class="stats-card">', unsafe_allow_html=True)
+st.markdown('<div class="section-title">個人打撃成績 (INDIVIDUAL BATTING)</div>', unsafe_allow_html=True)
+
 col_search_bat, _ = st.columns([2, 1])
-bat_search = col_search_bat.text_input("選手名検索", key="sb", label_visibility="collapsed", placeholder="選手名検索（例：牧）")
-disp_b = batting_df[batting_df["選手名"].str.contains(bat_search, na=False)] if bat_search else batting_df
-st.dataframe(disp_b, use_container_width=True, hide_index=True)
-st.plotly_chart(create_custom_chart(batting_df, "打率", "打率"), use_container_width=True)
+bat_search = col_search_bat.text_input("選手名で絞り込み（例：牧、佐野）", key="bat_search_input", placeholder="選手名を入力...")
+
+# 検索ワードがあればフィルタリング、なければ全表示
+disp_batting_df = batting_df[batting_df["選手名"].str.contains(bat_search, na=False)] if bat_search else batting_df
+
+st.dataframe(disp_batting_df, use_container_width=True, hide_index=True)
+st.markdown("<br>", unsafe_allow_html=True)
+
+# グラフは全体のランキングが分かりやすいようにオリジナルデータを使用
+st.markdown('<div style="font-size: 14px; font-weight: bold; color: #031c3c; margin-bottom: 5px;">🔥 チーム内打率ランキング</div>', unsafe_allow_html=True)
+chart_bat = create_custom_chart(batting_df, "打率", "打率")
+if chart_bat: st.plotly_chart(chart_bat, use_container_width=True, config={'displayModeBar': False})
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="stats-card"><div class="section-title">個人投手成績</div>', unsafe_allow_html=True)
-st.dataframe(pitching_df, use_container_width=True, hide_index=True)
-st.plotly_chart(create_custom_chart(pitching_df, "防御率", "防御率", True), use_container_width=True)
+
+# --------------------------------
+# 🛑 個人投手成績セクション（完全バグ修正版）
+# --------------------------------
+st.markdown('<div class="stats-card">', unsafe_allow_html=True)
+st.markdown('<div class="section-title">個人投手成績 (INDIVIDUAL PITCHING)</div>', unsafe_allow_html=True)
+
+col_search_pitch, _ = st.columns([2, 1])
+pitch_search = col_search_pitch.text_input("選手名で絞り込み（例：東、伊勢）", key="pitch_search_input", placeholder="選手名を入力...")
+
+# 検索ワードがあればフィルタリング、なければ全表示
+disp_pitching_df = pitching_df[pitching_df["選手名"].str.contains(pitch_search, na=False)] if pitch_search else pitching_df
+
+st.dataframe(disp_pitching_df, use_container_width=True, hide_index=True)
+st.markdown("<br>", unsafe_allow_html=True)
+
+# グラフは全体のランキングが分かりやすいようにオリジナルデータを使用（防御率は低い順にソート）
+st.markdown('<div style="font-size: 14px; font-weight: bold; color: #031c3c; margin-bottom: 5px;">👑 チーム内防御率ランキング（低いほど優秀）</div>', unsafe_allow_html=True)
+chart_pitch = create_custom_chart(pitching_df, "防御率", "防御率", is_ascending=True)
+if chart_pitch: st.plotly_chart(chart_pitch, use_container_width=True, config={'displayModeBar': False})
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div style="text-align: center; color: #5c7080; font-size: 12px; margin-top: 50px;">© YOKOHAMA DeNA BAYSTARS</div>', unsafe_allow_html=True)
+
+# --------------------------------
+# フッター
+# --------------------------------
+st.markdown('<div style="text-align: center; color: #5c7080; font-size: 12px; margin-top: 50px; padding-bottom: 20px;">© YOKOHAMA DeNA BAYSTARS</div>', unsafe_allow_html=True)
