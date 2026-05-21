@@ -84,21 +84,60 @@ st.markdown("""
     margin-top: 2px;
 }
 
+/* 🏆 個人タイトル用の豪華なゴールドミニタイル */
+.trophy-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.trophy-card-luxury {
+    background: linear-gradient(135deg, #fffef9 0%, #fffbdf 100%);
+    border: 1px solid #ffe599;
+    border-radius: 10px;
+    padding: 12px 8px;
+    text-align: center;
+    box-shadow: 0px 3px 6px rgba(0,0,0,0.03);
+}
+.trophy-title-luxury {
+    font-size: 11px;
+    color: #b38600;
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+.trophy-name-luxury {
+    font-size: 16px;
+    color: #031c3c;
+    font-weight: bold;
+}
+.trophy-value-luxury {
+    font-size: 13px;
+    color: #cc0000;
+    font-weight: bold;
+    margin-top: 1px;
+}
+
 /* 🧭 指標解説用のスタイル */
 .desc-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 15px;
-    margin-top: 10px;
+    margin-top: 15px;
 }
 .desc-card {
-    background-color: #f8fba5; /* 優しいゴールド・イエロー系 */
-    border: 1px solid #e1e58b;
+    background-color: #f7f9fa;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+}
+.desc-card-yellow {
+    background-color: #fffde6;
+    border: 1px solid #efecb3;
     border-radius: 8px;
     padding: 12px;
 }
 .desc-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: bold;
     color: #031c3c;
     margin-bottom: 4px;
@@ -169,7 +208,14 @@ try:
     batting_df = pd.read_csv(batting_csv_path)
     pitching_df = pd.read_csv(pitching_csv_path)
     
-    # 打撃比較
+    # 個人データの補正計算（OPS、K/BB）
+    if "出塁率" in batting_df.columns and "長打率" in batting_df.columns:
+        batting_df["OPS"] = batting_df["出塁率"] + batting_df["長打率"]
+    if "奪三振" in pitching_df.columns and "四球" in pitching_df.columns:
+        # 0割るのを防ぐ
+        pitching_df["K_BB"] = pitching_df.apply(lambda r: round(r["奪三振"] / r["四球"], 2) if r["四球"] > 0 else r["奪三振"], axis=1)
+    
+    # チーム打撃比較
     if os.path.exists(cl_batting_csv_path):
         cl_bat_df = pd.read_csv(cl_batting_csv_path)
         if "出塁率" in cl_bat_df.columns and "長打率" in cl_bat_df.columns:
@@ -177,7 +223,7 @@ try:
     else:
         cl_bat_df = pd.DataFrame()
         
-    # 投手比較
+    # チーム投手比較
     if os.path.exists(cl_pitching_csv_path):
         cl_pitch_df = pd.read_csv(cl_pitching_csv_path)
     else:
@@ -312,13 +358,6 @@ with main_tabs[0]:
                 <div class="cl-king-card"><div class="cl-king-title">盗塁王</div><div class="cl-king-team">{k_sb['チーム']}</div><div class="cl-king-value">{int(k_sb['盗塁'])}個</div></div>
             </div>
             """, unsafe_allow_html=True)
-
-        # 📄 打撃指標の説明カードを追加！
-        st.markdown('<div class="desc-grid">'
-                    '<div class="desc-card"><div class="desc-title">📊 チームOPS</div><div class="desc-text">出塁率＋長打率で算出。チームの得点効率と最も相関が高い、現代野球の超重要指標。</div></div>'
-                    '<div class="desc-card"><div class="desc-title">🎯 出塁率</div><div class="desc-text">安打、四球、死球で出塁した割合。どれだけ相手投手に球数を投げさせ、塁に出られたかを表す。</div></div>'
-                    '<div class="desc-card"><div class="desc-title">併殺打・三振(少)</div><div class="desc-text">レーダー上では、数が「少ない」ほど外側にピンと尖り、チャンスに強いクオリティの高い打線であることを示します。</div></div>'
-                    '</div>', unsafe_allow_html=True)
     else:
         st.info("💡 GitHubに `central_league_stats.csv` をアップロードしてください。")
 
@@ -376,12 +415,6 @@ with main_tabs[1]:
                 <div class="cl-king-card"><div class="cl-king-title">最多勝王</div><div class="cl-king-team">{kp_win['チーム']}</div><div class="cl-king-value">{int(kp_win['勝利'])}勝</div></div>
             </div>
             """, unsafe_allow_html=True)
-
-        # 📄 投手指標の説明カードを追加！
-        st.markdown('<div class="desc-grid">'
-                    '<div class="desc-card"><div class="desc-title">🛡️ WHIP</div><div class="desc-text">「1イニングあたりに許した走者（安打＋四球）」の数。1.10台なら超エース級、低いほど走者を出さない鉄壁の投手力。</div></div>'
-                    '<div class="desc-card"><div class="desc-title">📉 防御率・失点(少)</div><div class="desc-text">投手成績は低いほど優秀なため、計算を反転しています。レーダーが外に広がっているほど「失点しない強力な投手陣」を表します。</div></div>'
-                    '</div>', unsafe_allow_html=True)
     else:
         st.info("💡 GitHubに `central_league_pitching.csv` をアップロードしてください。")
 
@@ -389,46 +422,92 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 
 # --------------------------------
-# 🏏 個人打撃成績セクション（完全バグ修正版）
+# 🏏 個人打撃成績セクション（チーム内王タイル復活！）
 # --------------------------------
 st.markdown('<div class="stats-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">個人打撃成績 (INDIVIDUAL BATTING)</div>', unsafe_allow_html=True)
 
+# 👑 チーム内打撃タイトル王タイルの自動計算＆表示
+if not batting_df.empty:
+    # 規定打席以上の絞り込みがあれば理想ですが、今回は単純なチーム内トップを計算
+    p_b_avg = batting_df.sort_values(by="打率", ascending=False).iloc[0]
+    p_b_hr = batting_df.sort_values(by="本塁打", ascending=False).iloc[0]
+    p_b_rbi = batting_df.sort_values(by="打点", ascending=False).iloc[0]
+    p_b_hits = batting_df.sort_values(by="安打", ascending=False).iloc[0]
+    p_b_sb = batting_df.sort_values(by="盗塁", ascending=False).iloc[0]
+    p_b_ops = batting_df.sort_values(by="OPS", ascending=False).iloc[0]
+
+    st.markdown(f"""
+    <div class="trophy-grid-compact">
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チーム打率王</div><div class="trophy-name-luxury">{p_b_avg['選手名']}</div><div class="trophy-value-luxury">{p_b_avg['打率']:.3f}</div></div>
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チーム本塁打王</div><div class="trophy-name-luxury">{p_b_hr['選手名']}</div><div class="trophy-value-luxury">{int(p_b_hr['本塁打'])}本</div></div>
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チーム打点王</div><div class="trophy-name-luxury">{p_b_rbi['選手名']}</div><div class="trophy-value-luxury">{int(p_b_rbi['打点'])}点</div></div>
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チーム安打王</div><div class="trophy-name-luxury">{p_b_hits['選手名']}</div><div class="trophy-value-luxury">{int(p_b_hits['安打'])}本</div></div>
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チーム盗塁王</div><div class="trophy-name-luxury">{p_b_sb['選手名']}</div><div class="trophy-value-luxury">{int(p_b_sb['盗塁'])}個</div></div>
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チームOPS王</div><div class="trophy-name-luxury">{p_b_ops['選手名']}</div><div class="trophy-value-luxury">{p_b_ops['OPS']:.3f}</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+
 col_search_bat, _ = st.columns([2, 1])
 bat_search = col_search_bat.text_input("選手名で絞り込み（例：牧、佐野）", key="bat_search_input", placeholder="選手名を入力...")
-
-# 検索ワードがあればフィルタリング、なければ全表示
 disp_batting_df = batting_df[batting_df["選手名"].str.contains(bat_search, na=False)] if bat_search else batting_df
 
 st.dataframe(disp_batting_df, use_container_width=True, hide_index=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
-# グラフは全体のランキングが分かりやすいようにオリジナルデータを使用
 st.markdown('<div style="font-size: 14px; font-weight: bold; color: #031c3c; margin-bottom: 5px;">🔥 チーム内打率ランキング</div>', unsafe_allow_html=True)
 chart_bat = create_custom_chart(batting_df, "打率", "打率")
 if chart_bat: st.plotly_chart(chart_bat, use_container_width=True, config={'displayModeBar': False})
+
+# 📄 個人打撃指標のミニ解説
+st.markdown('<div class="desc-grid">'
+            '<div class="desc-card"><div class="desc-title">📈 OPS (オプス)</div><div class="desc-text">「出塁率＋長打率」で計算。打者がどれだけベースに出て、どれだけ長打を打ったかを合算した、得点への貢献度が最も高い指標です（.800を超えると一流、.900超えは超一流）。</div></div>'
+            '</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 
 # --------------------------------
-# 🛑 個人投手成績セクション（完全バグ修正版）
+# 🛑 個人投手成績セクション（チーム内王タイル＆個人指標解説 復活！）
 # --------------------------------
 st.markdown('<div class="stats-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">個人投手成績 (INDIVIDUAL PITCHING)</div>', unsafe_allow_html=True)
 
+# 👑 チーム内投手タイトル王タイルの自動計算＆表示
+if not pitching_df.empty:
+    p_p_era = pitching_df.sort_values(by="防御率", ascending=True).iloc[0]
+    p_p_win = pitching_df.sort_values(by="勝利", ascending=False).iloc[0]
+    p_p_so = pitching_df.sort_values(by="奪三振", ascending=False).iloc[0]
+    p_p_sv = pitching_df.sort_values(by="セーブ", ascending=False).iloc[0]
+    p_p_hld = pitching_df.sort_values(by="ホールド", ascending=False).iloc[0]
+    p_p_kbb = pitching_df.sort_values(by="K_BB", ascending=False).iloc[0]
+
+    st.markdown(f"""
+    <div class="trophy-grid-compact">
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チーム最優秀防御率</div><div class="trophy-name-luxury">{p_p_era['選手名']}</div><div class="trophy-value-luxury">{p_p_era['防御率']:.2f}</div></div>
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チーム最多勝</div><div class="trophy-name-luxury">{p_p_win['選手名']}</div><div class="trophy-value-luxury">{int(p_p_win['勝利'])}勝</div></div>
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チーム奪三振王</div><div class="trophy-name-luxury">{p_p_so['選手名']}</div><div class="trophy-value-luxury">{int(p_p_so['奪三振'])}個</div></div>
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チームセーブ王</div><div class="trophy-name-luxury">{p_p_sv['選手名']}</div><div class="trophy-value-luxury">{int(p_p_sv['セーブ'])}S</div></div>
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チームホールド王</div><div class="trophy-name-luxury">{p_p_hld['選手名']}</div><div class="trophy-value-luxury">{int(p_p_hld['ホールド'])}H</div></div>
+        <div class="trophy-card-luxury"><div class="trophy-title-luxury">チームK/BB王</div><div class="trophy-name-luxury">{p_p_kbb['選手名']}</div><div class="trophy-value-luxury">{p_p_kbb['K_BB']:.2f}</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+
 col_search_pitch, _ = st.columns([2, 1])
 pitch_search = col_search_pitch.text_input("選手名で絞り込み（例：東、伊勢）", key="pitch_search_input", placeholder="選手名を入力...")
-
-# 検索ワードがあればフィルタリング、なければ全表示
 disp_pitching_df = pitching_df[pitching_df["選手名"].str.contains(pitch_search, na=False)] if pitch_search else pitching_df
 
 st.dataframe(disp_pitching_df, use_container_width=True, hide_index=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
-# グラフは全体のランキングが分かりやすいようにオリジナルデータを使用（防御率は低い順にソート）
 st.markdown('<div style="font-size: 14px; font-weight: bold; color: #031c3c; margin-bottom: 5px;">👑 チーム内防御率ランキング（低いほど優秀）</div>', unsafe_allow_html=True)
 chart_pitch = create_custom_chart(pitching_df, "防御率", "防御率", is_ascending=True)
 if chart_pitch: st.plotly_chart(chart_pitch, use_container_width=True, config={'displayModeBar': False})
+
+# 📄 個人投手指標（K/BBなど）の解説カード（復活！）
+st.markdown('<div class="desc-grid">'
+            '<div class="desc-card-yellow"><div class="desc-title">🎯 K/BB (ケー・バイ・ビービー)</div><div class="desc-text">「奪三振 ÷ 与四球」で計算。投手の純粋なコントロールと球威の支配力を示すマニアックな重要指標。3.50を超えると一流、5.00を超えると神がかった絶対的エースとされます。</div></div>'
+            '<div class="desc-card-yellow"><div class="desc-title">🛡️ 防御率 (ERA)</div><div class="desc-text">「自責点 × 9 ÷ 投球回」で計算。1試合（9イニング）完投したときに、平均して何点に抑えられるかを示す指標です。低いほど失点しない優れた投手であることを示します。</div></div>'
+            '</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 
