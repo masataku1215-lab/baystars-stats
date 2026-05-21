@@ -265,7 +265,7 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False, x_column="
 
 
 # --------------------------------
-# 🏟️ セ・リーグ 6球団比較セクション
+# 🏟️ セ・リーグ 6球団比較セクション（レーダーチャート版）
 # --------------------------------
 st.markdown('<div class="stats-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">セ・リーグ チームスタッツ比較 (CENTRAL LEAGUE)</div>', unsafe_allow_html=True)
@@ -275,27 +275,83 @@ if not cl_df.empty:
     st.dataframe(cl_df, use_container_width=True, hide_index=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 左右に並べてグラフ比較
-    cl_col_left, cl_col_right = st.columns(2)
-    with cl_col_left:
-        st.markdown('<div style="font-weight: bold; color: #031c3c; margin-bottom: 5px; font-size: 15px;">📊 チーム打率ランキング</div>', unsafe_allow_html=True)
-        st.plotly_chart(create_custom_chart(cl_df, "チーム打率", "打率", False, x_column="チーム"), use_container_width=True, config={'displayModeBar': False})
-        
-        st.markdown('<div style="font-weight: bold; color: #031c3c; margin-top: 15px; margin-bottom: 5px; font-size: 15px;">📊 チーム総得点ランキング</div>', unsafe_allow_html=True)
-        st.plotly_chart(create_custom_chart(cl_df, "得点", "得点", False, x_column="チーム"), use_container_width=True, config={'displayModeBar': False})
-
-    with cl_col_right:
-        st.markdown('<div style="font-weight: bold; color: #031c3c; margin-bottom: 5px; font-size: 15px;">📊 チーム最高OPSランキング</div>', unsafe_allow_html=True)
-        st.plotly_chart(create_custom_chart(cl_df, "チームOPS", "OPS", False, x_column="チーム"), use_container_width=True, config={'displayModeBar': False})
-        
-        st.markdown('<div style="font-weight: bold; color: #031c3c; margin-top: 15px; margin-bottom: 5px; font-size: 15px;">📊 チーム総本塁打ランキング</div>', unsafe_allow_html=True)
-        st.plotly_chart(create_custom_chart(cl_df, "本塁打", "本塁打", False, x_column="チーム"), use_container_width=True, config={'displayModeBar': False})
+    # --- 🧭 レーダーチャート用のデータ整形 ---
+    # 表示したい10個の指標
+    radar_features = ["チーム打率", "OPS", "本塁打", "得点", "打点", "安打", "四球", "三振", "併殺打", "出塁率"]
+    
+    # CSVに「チームOPS」という名前で入っている場合の補正
+    actual_features = []
+    for f in radar_features:
+        if f == "OPS" and "チームOPS" in cl_df.columns:
+            actual_features.append("チームOPS")
+        elif f in cl_df.columns:
+            actual_features.append(f)
+            
+    # 各指標の「リーグ最高値」を100%とした相対値（0〜1）に変換してレーダーの形を整える
+    radar_df_list = []
+    for idx, row in cl_df.iterrows():
+        team_name = row["チーム"]
+        for f in actual_features:
+            max_val = cl_df[f].max()
+            min_val = cl_df[f].min()
+            # 三振と併殺打は「少ない方が良い」ので計算を反転、他は多いほど1に近づく
+            if f in ["三振", "併殺打"]:
+                score = (max_val - row[f]) / (max_val - min_val) if max_val != min_val else 1.0
+                display_label = f"{f}(少)"
+            else:
+                score = row[f] / max_val if max_val != 0 else 0.0
+                display_label = f
+                
+            radar_df_list.append({
+                "チーム": team_name,
+                "項目": display_label,
+                "輝き度": score,
+                "実際の値": row[f]
+            })
+            
+    radar_plot_df = pd.DataFrame(radar_df_list)
+    
+    # --- 🎨 Plotly レーダーチャート描画 ---
+    fig_radar = px.line_polar(
+        radar_plot_df, 
+        r="輝き度", 
+        theta="項目", 
+        color="チーム",
+        line_close=True,
+        hover_data={"実際の値": True, "輝き度": False, "チーム": True, "項目": True}
+    )
+    
+    # ベイスターズだけを主役に引き立てるカラー演出
+    for trace in fig_radar.data:
+        if "ベイスターズ" in trace.name:
+            trace.line.width = 4.5
+            trace.line.color = "#005bac"
+            trace.fill = "toself"  # ベイスターズだけ中を青く塗りつぶす
+            trace.fillcolor = "rgba(0, 91, 172, 0.2)"
+        else:
+            trace.line.width = 1.5
+            trace.line.color = "#a0b2c6"
+            trace.line.dash = "dot" # 他球団は目立たないように点線に
+            
+    fig_radar.update_layout(
+        polar=dict(
+            radialaxis=dict(visible=False, range=[0, 1.1]), # 補助線の数値を隠してスッキリ
+            angularaxis=dict(tickfont=dict(size=12, weight="bold", color="#111111"))
+        ),
+        showlegend=True,
+        height=500,
+        margin=dict(l=50, r=50, t=30, b=30),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    
+    # 画面中央にドカンと表示
+    st.plotly_chart(fig_radar, use_container_width=True, config={'displayModeBar': False})
+    
 else:
-    st.info("💡 GitHubに `central_league_stats.csv` をアップロードすると、ここに6球団の比較表とグラフが自動生成されます。")
+    st.info("💡 GitHubに `central_league_stats.csv` をアップロードすると、ここにレーダーチャートが自動生成されます。")
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-
 # --------------------------------
 # 🏏 個人打撃成績セクション
 # --------------------------------
