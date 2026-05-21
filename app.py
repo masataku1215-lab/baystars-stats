@@ -95,7 +95,7 @@ st.markdown("""
     color: #111111 !important;
 }
 
-/* 予測結果カード（完全真っ黒文字固定） */
+/* 予測結果カード */
 .sim-result-box-blacktext {
     background-color: #e6f2ff;
     border-left: 6px solid #005bac;
@@ -110,7 +110,7 @@ st.markdown("""
     font-weight: bold !important;
 }
 
-/* 👑 王様タイルの汎用設定 */
+/* 👑 選手用の王様タイル */
 .trophy-grid-compact-2col {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -144,9 +144,13 @@ st.markdown("""
     border-radius: 10px;
     overflow: hidden;
 }
+
+/* メインタブ（大きなタブ）のスタイルカスタム */
 .stTabs [data-baseweb="tab"] {
+    font-size: 16px !important;
     font-weight: bold !important;
     color: #005bac !important;
+    padding: 10px 20px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -162,18 +166,27 @@ st.markdown('<div class="sub-title">2026 SEASON STATS</div>', unsafe_allow_html=
 # --------------------------------
 batting_csv_path = "baystars_batting.csv"
 pitching_csv_path = "baystars_pitching.csv"
-cl_stats_csv_path = "central_league_stats.csv"
+cl_batting_csv_path = "central_league_stats.csv"       # 打撃比較用
+cl_pitching_csv_path = "central_league_pitching.csv"   # 投手比較用
 
 try:
     batting_df = pd.read_csv(batting_csv_path)
     pitching_df = pd.read_csv(pitching_csv_path)
     
-    if os.path.exists(cl_stats_csv_path):
-        cl_df = pd.read_csv(cl_stats_csv_path)
-        if "出塁率" in cl_df.columns and "長打率" in cl_df.columns:
-            cl_df["チームOPS"] = cl_df["出塁率"] + cl_df["長打率"]
+    # 打撃比較
+    if os.path.exists(cl_batting_csv_path):
+        cl_bat_df = pd.read_csv(cl_batting_csv_path)
+        if "出塁率" in cl_bat_df.columns and "長打率" in cl_bat_df.columns:
+            cl_bat_df["チームOPS"] = cl_bat_df["出塁率"] + cl_bat_df["長打率"]
     else:
-        cl_df = pd.DataFrame()
+        cl_bat_df = pd.DataFrame()
+        
+    # 投手比較
+    if os.path.exists(cl_pitching_csv_path):
+        cl_pitch_df = pd.read_csv(cl_pitching_csv_path)
+    else:
+        cl_pitch_df = pd.DataFrame()
+        
 except Exception as e:
     st.error(f"⚠️ データの読み込み中にエラーが発生しました。")
     st.stop()
@@ -239,98 +252,151 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False, x_column="
 
 
 # --------------------------------
-# 🏟️ 【修正版】セ・リーグ比較セクション
+# 🏟️ セ・リーグ チームスタッツ比較（打撃・投手切り替えタブ化）
 # --------------------------------
 st.markdown('<div class="stats-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">セ・リーグ チームスタッツ比較 (CENTRAL LEAGUE)</div>', unsafe_allow_html=True)
 
-if not cl_df.empty:
-    st.dataframe(cl_df, use_container_width=True, hide_index=True)
-    st.markdown("<br>", unsafe_allow_html=True)
+# 球団カラーマッピングの定義
+team_colors = {
+    "横浜DeNAベイスターズ": "#005bac", 
+    "阪神タイガース": "#ffc107", 
+    "読売ジャイアンツ": "#ff6600", 
+    "東京ヤクルトスワローズ": "#228b22", 
+    "広島東洋カープ": "#ff0000", 
+    "中日ドラゴンズ": "#002f6c"
+}
 
-    # レイアウト分け：左にレーダー、右に王様タイル
-    cl_col_radar, cl_col_kings = st.columns([6, 4])
+# 大きなタブで打撃と投手を切り替え
+main_tabs = st.tabs(["🏏 チーム打撃成績比較", "🛑 チーム投球成績比較"])
 
-    with cl_col_radar:
-        # 指標データの準備
-        radar_features = ["チーム打率", "チームOPS", "本塁打", "得点", "打点", "安打", "四球", "三振", "併殺打", "出塁率"]
-        actual_features = [f for f in radar_features if f in cl_df.columns]
-        radar_df_list = []
-        for idx, row in cl_df.iterrows():
-            for f in actual_features:
-                max_v, min_v = cl_df[f].max(), cl_df[f].min()
-                if f in ["三振", "併殺打"]:
-                    score = (max_v - row[f]) / (max_v - min_v) if max_v != min_v else 1.0
+# --- 1. 打撃成績タブ ---
+with main_tabs[0]:
+    if not cl_bat_df.empty:
+        st.dataframe(cl_bat_df, use_container_width=True, hide_index=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        cl_col_radar, cl_col_kings = st.columns([6, 4])
+        with cl_col_radar:
+            radar_features = ["チーム打率", "チームOPS", "本塁打", "得点", "打点", "安打", "四球", "三振", "併殺打", "出塁率"]
+            actual_features = [f for f in radar_features if f in cl_bat_df.columns]
+            radar_df_list = []
+            for idx, row in cl_bat_df.iterrows():
+                for f in actual_features:
+                    max_v, min_v = cl_bat_df[f].max(), cl_bat_df[f].min()
+                    if f in ["三振", "併殺打"]:
+                        score = (max_v - row[f]) / (max_v - min_v) if max_v != min_v else 1.0
+                    else:
+                        score = row[f] / max_v if max_v != 0 else 0.0
+                    radar_df_list.append({"チーム": row["チーム"], "項目": f, "スコア": score, "値": row[f]})
+            
+            fig_radar = px.line_polar(pd.DataFrame(radar_df_list), r="スコア", theta="項目", color="チーム", line_close=True)
+            for trace in fig_radar.data:
+                matched_color = team_colors.get(trace.name, "#a0b2c6")
+                trace.line.color = matched_color
+                if "ベイスターズ" in trace.name:
+                    trace.line.width = 5; trace.fill = "toself"; trace.fillcolor = "rgba(0, 91, 172, 0.2)"
                 else:
-                    score = row[f] / max_v if max_v != 0 else 0.0
-                radar_df_list.append({"チーム": row["チーム"], "項目": f, "スコア": score, "値": row[f]})
-        
-        fig_radar = px.line_polar(pd.DataFrame(radar_df_list), r="スコア", theta="項目", color="チーム", line_close=True)
-        
-        team_colors = {"横浜DeNAベイスターズ": "#005bac", "阪神タイガース": "#ffc107", "読売ジャイアンツ": "#ff6600", "東京ヤクルトスワローズ": "#228b22", "広島東洋カープ": "#ff0000", "中日ドラゴンズ": "#002f6c"}
-        
-        for trace in fig_radar.data:
-            matched_color = team_colors.get(trace.name, "#a0b2c6")
-            trace.line.color = matched_color
-            if "ベイスターズ" in trace.name:
-                trace.line.width = 5; trace.fill = "toself"; trace.fillcolor = "rgba(0, 91, 172, 0.2)"
-            else:
-                trace.line.width = 2
-        
-        fig_radar.update_layout(
-            polar=dict(radialaxis=dict(visible=False, range=[0, 1.1])),
-            legend_font_color="#111111", # チーム名（凡例）を黒に
-            font=dict(color="#111111"), # 全体テキストを黒に
-            height=500, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
-        )
-        st.plotly_chart(fig_radar, use_container_width=True, config={'displayModeBar': False})
+                    trace.line.width = 2
+            
+            fig_radar.update_layout(polar=dict(radialaxis=dict(visible=False, range=[0, 1.1])), legend_font_color="#111111", font=dict(color="#111111"), height=500, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_radar, use_container_width=True, config={'displayModeBar': False})
 
-    with cl_col_kings:
-        st.markdown('<div style="font-weight: bold; color: #b38600; text-align: center; margin-bottom: 10px;">👑 セ・リーグ打撃部門トップ</div>', unsafe_allow_html=True)
-        
-        # 部門別No.1チームの計算
-        k_avg = cl_df.sort_values(by="チーム打率", ascending=False).iloc[0]
-        k_hr = cl_df.sort_values(by="本塁打", ascending=False).iloc[0]
-        k_ops = cl_df.sort_values(by="チームOPS", ascending=False).iloc[0]
-        k_runs = cl_df.sort_values(by="得点", ascending=False).iloc[0]
-        k_obp = cl_df.sort_values(by="出塁率", ascending=False).iloc[0]
-        k_sb = cl_df.sort_values(by="盗塁", ascending=False).iloc[0]
+        with cl_col_kings:
+            st.markdown('<div style="font-weight: bold; color: #b38600; text-align: center; margin-bottom: 10px;">👑 セ・リーグ打撃部門トップ</div>', unsafe_allow_html=True)
+            k_avg = cl_bat_df.sort_values(by="チーム打率", ascending=False).iloc[0]
+            k_hr = cl_bat_df.sort_values(by="本塁打", ascending=False).iloc[0]
+            k_ops = cl_bat_df.sort_values(by="チームOPS", ascending=False).iloc[0]
+            k_runs = cl_bat_df.sort_values(by="得点", ascending=False).iloc[0]
+            k_obp = cl_bat_df.sort_values(by="出塁率", ascending=False).iloc[0]
+            k_sb = cl_bat_df.sort_values(by="盗塁", ascending=False).iloc[0]
 
-        # タイル表示
-        st.markdown(f"""
-        <div class="cl-king-grid">
-            <div class="cl-king-card">
-                <div class="cl-king-title">打率王</div><div class="cl-king-team">{k_avg['チーム']}</div><div class="cl-king-value">{k_avg['チーム打率']:.3f}</div>
+            st.markdown(f"""
+            <div class="cl-king-grid">
+                <div class="cl-king-card"><div class="cl-king-title">打率王</div><div class="cl-king-team">{k_avg['チーム']}</div><div class="cl-king-value">{k_avg['チーム打率']:.3f}</div></div>
+                <div class="cl-king-card"><div class="cl-king-title">本塁打王</div><div class="cl-king-team">{k_hr['チーム']}</div><div class="cl-king-value">{int(k_hr['本塁打'])}本</div></div>
+                <div class="cl-king-card"><div class="cl-king-title">OPS王</div><div class="cl-king-team">{k_ops['チーム']}</div><div class="cl-king-value">{k_ops['チームOPS']:.3f}</div></div>
+                <div class="cl-king-card"><div class="cl-king-title">得点王</div><div class="cl-king-team">{k_runs['チーム']}</div><div class="cl-king-value">{int(k_runs['得点'])}点</div></div>
+                <div class="cl-king-card"><div class="cl-king-title">出塁率王</div><div class="cl-king-team">{k_obp['チーム']}</div><div class="cl-king-value">{k_obp['出塁率']:.3f}</div></div>
+                <div class="cl-king-card"><div class="cl-king-title">盗塁王</div><div class="cl-king-team">{k_sb['チーム']}</div><div class="cl-king-value">{int(k_sb['盗塁'])}個</div></div>
             </div>
-            <div class="cl-king-card">
-                <div class="cl-king-title">本塁打王</div><div class="cl-king-team">{k_hr['チーム']}</div><div class="cl-king-value">{int(k_hr['本塁打'])}本</div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("💡 GitHubに `central_league_stats.csv` をアップロードしてください。")
+
+# --- 2. 投手成績タブ（新規追加！） ---
+with main_tabs[1]:
+    if not cl_pitch_df.empty:
+        st.dataframe(cl_pitch_df, use_container_width=True, hide_index=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        cl_pitch_radar, cl_pitch_kings = st.columns([6, 4])
+        with cl_pitch_radar:
+            # 投手力を測る10個の主要指標
+            pitch_features = ["防御率", "失点", "自責点", "安打", "本塁打", "四球", "三振", "WHIP", "セーブ", "ホールド"]
+            actual_pitch_features = [f for f in pitch_features if f in cl_pitch_df.columns]
+            
+            pitch_radar_list = []
+            for idx, row in cl_pitch_df.iterrows():
+                for f in actual_pitch_features:
+                    max_v, min_v = cl_pitch_df[f].max(), cl_pitch_df[f].min()
+                    
+                    # 💡 低いほうが優秀な指標（防御率、失点、自責点、被安打、被本塁打、与四球、WHIP）は計算を反転！
+                    if f in ["防御率", "失点", "自責点", "安打", "本塁打", "四球", "WHIP"]:
+                        score = (max_v - row[f]) / (max_v - min_v) if max_v != min_v else 1.0
+                        label_name = f"{f}(少)"
+                    else:
+                        # 高いほうが優秀な指標（三振、セーブ、ホールド）
+                        score = row[f] / max_v if max_v != 0 else 0.0
+                        label_name = f
+                        
+                    pitch_radar_list.append({"チーム": row["チーム"], "項目": label_name, "スコア": score, "値": row[f]})
+            
+            fig_pitch_radar = px.line_polar(pd.DataFrame(pitch_radar_list), r="スコア", theta="項目", color="チーム", line_close=True)
+            for trace in fig_pitch_radar.data:
+                matched_color = team_colors.get(trace.name, "#a0b2c6")
+                trace.line.color = matched_color
+                if "ベイスターズ" in trace.name:
+                    trace.line.width = 5; trace.fill = "toself"; trace.fillcolor = "rgba(0, 91, 172, 0.2)"
+                else:
+                    trace.line.width = 2
+            
+            fig_pitch_radar.update_layout(polar=dict(radialaxis=dict(visible=False, range=[0, 1.1])), legend_font_color="#111111", font=dict(color="#111111"), height=500, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_pitch_radar, use_container_width=True, config={'displayModeBar': False})
+
+        with cl_pitch_kings:
+            st.markdown('<div style="font-weight: bold; color: #b38600; text-align: center; margin-bottom: 10px;">👑 セ・リーグ投手部門トップ</div>', unsafe_allow_html=True)
+            
+            # 各部門トップチームの計算（低いほうが良いもの、高いほうが良いものを考慮）
+            kp_era = cl_pitch_df.sort_values(by="防御率", ascending=True).iloc[0]
+            kp_so = cl_pitch_df.sort_values(by="三振", ascending=False).iloc[0]
+            kp_whip = cl_pitch_df.sort_values(by="WHIP", ascending=True).iloc[0]
+            kp_bb = cl_pitch_df.sort_values(by="四球", ascending=True).iloc[0]
+            kp_sv = cl_pitch_df.sort_values(by="セーブ", ascending=False).iloc[0]
+            kp_win = cl_pitch_df.sort_values(by="勝利", ascending=False).iloc[0]
+
+            st.markdown(f"""
+            <div class="cl-king-grid">
+                <div class="cl-king-card"><div class="cl-king-title">最優秀防御率王</div><div class="cl-king-team">{kp_era['チーム']}</div><div class="cl-king-value">{kp_era['防御率']:.2f}</div></div>
+                <div class="cl-king-card"><div class="cl-king-title">奪三振王</div><div class="cl-king-team">{kp_so['チーム']}</div><div class="cl-king-value">{int(kp_so['三振'])}個</div></div>
+                <div class="cl-king-card"><div class="cl-king-title">鉄壁王 (WHIP)</div><div class="cl-king-team">{kp_whip['チーム']}</div><div class="cl-king-value">{kp_whip['WHIP']:.2f}</div></div>
+                <div class="cl-king-card"><div class="cl-king-title">無四球王 (少四球)</div><div class="cl-king-team">{kp_bb['チーム']}</div><div class="cl-king-value">{int(kp_bb['四球'])}個</div></div>
+                <div class="cl-king-card"><div class="cl-king-title">守護神王 (セーブ)</div><div class="cl-king-team">{kp_sv['チーム']}</div><div class="cl-king-value">{int(kp_sv['セーブ'])}S</div></div>
+                <div class="cl-king-card"><div class="cl-king-title">最多勝王</div><div class="cl-king-team">{kp_win['チーム']}</div><div class="cl-king-value">{int(kp_win['勝利'])}勝</div></div>
             </div>
-            <div class="cl-king-card">
-                <div class="cl-king-title">OPS王</div><div class="cl-king-team">{k_ops['チーム']}</div><div class="cl-king-value">{k_ops['チームOPS']:.3f}</div>
-            </div>
-            <div class="cl-king-card">
-                <div class="cl-king-title">得点王</div><div class="cl-king-team">{k_runs['チーム']}</div><div class="cl-king-value">{int(k_runs['得点'])}点</div>
-            </div>
-            <div class="cl-king-card">
-                <div class="cl-king-title">出塁率王</div><div class="cl-king-team">{k_obp['チーム']}</div><div class="cl-king-value">{k_obp['出塁率']:.3f}</div>
-            </div>
-            <div class="cl-king-card">
-                <div class="cl-king-title">盗塁王</div><div class="cl-king-team">{k_sb['チーム']}</div><div class="cl-king-value">{int(k_sb['盗塁'])}個</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-else:
-    st.info("💡 GitHubに `central_league_stats.csv` をアップロードしてください。")
+            """, unsafe_allow_html=True)
+    else:
+        st.info("💡 GitHubに `central_league_pitching.csv` をアップロードすると、ここに投手レーダーチャートが自動生成されます。")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
+
 # --------------------------------
-# 🏏 個人打撃・投手セクション（以前と同様）
+# 🏏 個人打撃・投手セクション
 # --------------------------------
-# --- (以下、前回までの個人成績コードが続きます) ---
 st.markdown('<div class="stats-card"><div class="section-title">個人打撃成績</div>', unsafe_allow_html=True)
 col_search_bat, _ = st.columns([2, 1])
-bat_search = col_search_bat.text_input("選手名検索", key="sb", label_visibility="collapsed")
+bat_search = col_search_bat.text_input("選手名検索", key="sb", label_visibility="collapsed", placeholder="選手名検索（例：牧）")
 disp_b = batting_df[batting_df["選手名"].str.contains(bat_search, na=False)] if bat_search else batting_df
 st.dataframe(disp_b, use_container_width=True, hide_index=True)
 st.plotly_chart(create_custom_chart(batting_df, "打率", "打率"), use_container_width=True)
@@ -341,4 +407,4 @@ st.dataframe(pitching_df, use_container_width=True, hide_index=True)
 st.plotly_chart(create_custom_chart(pitching_df, "防御率", "防御率", True), use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div style="text-align: center; color: #5c7080; font-size: 12px;">© YOKOHAMA DeNA BAYSTARS</div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align: center; color: #5c7080; font-size: 12px; margin-top: 50px;">© YOKOHAMA DeNA BAYSTARS</div>', unsafe_allow_html=True)
