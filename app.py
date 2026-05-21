@@ -311,7 +311,7 @@ if not cl_df.empty:
             
     radar_plot_df = pd.DataFrame(radar_df_list)
     
-    # --- 🎨 Plotly レーダーチャート描画 ---
+# --- 🎨 Plotly レーダーチャート描画（球団カラー完全対応版） ---
     fig_radar = px.line_polar(
         radar_plot_df, 
         r="輝き度", 
@@ -321,31 +321,48 @@ if not cl_df.empty:
         hover_data={"実際の値": True, "輝き度": False, "チーム": True, "項目": True}
     )
     
-    # ベイスターズだけを主役に引き立てるカラー演出
+    # 各球団のカラーマッピング設定
+    team_colors = {
+        "横浜DeNAベイスターズ": "#005bac",  # 青（主役・太線＋塗りつぶし）
+        "阪神タイガース": "#ffc107",        # 黄
+        "読売ジャイアンツ": "#ff6600",      # 橙
+        "東京ヤクルトスワローズ": "#228b22",  # 緑
+        "広島東洋カープ": "#ff0000",        # 赤
+        "中日ドラゴンズ": "#002f6c"         # 紺
+    }
+    
+    # 各チームの見た目を個別にチューニング
     for trace in fig_radar.data:
-        if "ベイスターズ" in trace.name:
-            trace.line.width = 4.5
-            trace.line.color = "#005bac"
-            trace.fill = "toself"  # ベイスターズだけ中を青く塗りつぶす
-            trace.fillcolor = "rgba(0, 91, 172, 0.2)"
+        team_name = trace.name
+        # 辞書から色を取得（万が一、CSVの文字が完全一致しない場合の予備にグレーを設定）
+        matched_color = "#a0b2c6"
+        for key, color in team_colors.items():
+            if key in team_name or team_name in key:
+                matched_color = color
+                break
+                
+        if "ベイスターズ" in team_name:
+            trace.line.width = 5.0             # 横浜は圧倒的エースなので最太線
+            trace.line.color = matched_color
+            trace.fill = "toself"              # 横浜だけエリアをシースルー青で塗りつぶし
+            trace.fillcolor = "rgba(0, 91, 172, 0.15)"
         else:
-            trace.line.width = 1.5
-            trace.line.color = "#a0b2c6"
-            trace.line.dash = "dot" # 他球団は目立たないように点線に
+            trace.line.width = 2.0             # 他球団は少し細めの実線で見やすく
+            trace.line.color = matched_color
             
     fig_radar.update_layout(
         polar=dict(
-            radialaxis=dict(visible=False, range=[0, 1.1]), # 補助線の数値を隠してスッキリ
+            radialaxis=dict(visible=False, range=[0, 1.1]), # 補助線の%数字を隠して美しく
             angularaxis=dict(tickfont=dict(size=12, weight="bold", color="#111111"))
         ),
         showlegend=True,
-        height=500,
-        margin=dict(l=50, r=50, t=30, b=30),
+        height=520,
+        margin=dict(l=60, r=60, t=30, b=30),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)'
     )
     
-    # 画面中央にドカンと表示
+    # 画面にドカンと表示
     st.plotly_chart(fig_radar, use_container_width=True, config={'displayModeBar': False})
     
 else:
