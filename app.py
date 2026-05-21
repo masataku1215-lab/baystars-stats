@@ -231,7 +231,7 @@ else:
 
 
 # --------------------------------
-# 📊 Plotlyグラフ用共通関数（エラー修正の安全版カラーマッピング）
+# 📊 Plotlyグラフ用共通関数（超安全・エラー絶対回避版）
 # --------------------------------
 def create_custom_chart(df, y_column, label_text, is_ascending=False, x_column="選手名"):
     if y_column not in df.columns:
@@ -239,26 +239,15 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False, x_column="
     df_sorted = df.sort_values(by=y_column, ascending=is_ascending)
     text_fmt = ".3f" if "打率" in y_column or y_column == "OPS" or y_column == "ISO" or "出塁" in y_column or "長打" in y_column else None
     
-    # セ・リーグ比較の時はベイスターズだけ球団カラーの青、他はグレーにする演出
+    # 基本の棒グラフを生成
+    fig = px.bar(df_sorted, x=x_column, y=y_column, text=y_column)
+    
+    # セ・リーグ比較の時はベイスターズだけ青、他はグレーにする（マップ機能を使わない100%安全な上書き方式）
     if x_column == "チーム":
-        fig = px.bar(
-            df_sorted, 
-            x=x_column, 
-            y=y_column, 
-            text=y_column, 
-            color=x_column, 
-            color_discrete_map={
-                "横浜DeNAベイスターズ": "#005bac",
-                "阪神タイガース": "#a0b2c6",
-                "東京ヤクルトスワローズ": "#a0b2c6",
-                "中日ドラゴンズ": "#a0b2c6",
-                "読売ジャイアンツ": "#a0b2c6",
-                "広島東洋カープ": "#a0b2c6"
-            }
-        )
-        fig.update_layout(showlegend=False)
+        colors = ["#005bac" if "ベイスターズ" in str(team) else "#a0b2c6" for team in df_sorted[x_column]]
+        fig.update_traces(marker_color=colors)
     else:
-        fig = px.bar(df_sorted, x=x_column, y=y_column, text=y_column, color_discrete_sequence=["#005bac"])
+        fig.update_traces(marker_color="#005bac")
         
     fig.update_layout(
         xaxis_title=None, yaxis_title=f"数値 ({label_text})",
@@ -266,7 +255,7 @@ def create_custom_chart(df, y_column, label_text, is_ascending=False, x_column="
         margin=dict(l=10, r=10, t=25, b=40), height=280,
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
     )
-    fig.update_xaxes(tickangle=30 if x_column == "チーム" else 45, tickfont=dict(size=11, weight="bold", color="#111111"))
+    fig.update_xaxes(tickangle=20 if x_column == "チーム" else 45, tickfont=dict(size=11, weight="bold", color="#111111"))
     fig.update_yaxes(tickfont=dict(size=11, weight="bold", color="#111111"), gridcolor="#cce4ff")
     if text_fmt:
         fig.update_traces(texttemplate='%{text:' + text_fmt + '}', textposition='outside', textfont_size=10, textfont_color="#111111", textfont_weight="bold")
@@ -329,7 +318,7 @@ with st.popover("📊 打撃指標の見方・目安"):
     * **打率 (AVG)**: ヒットを打つ確率。 [.250(平均) / .280(優秀) / .300(一流)]
     * **得点圏打率**: ランナーが二塁または三塁のチャンスの時の打率。
     * **OPS**: 出塁率 ＋ 長打率。得点貢献度を表す最重要指標。 [.700(平均) / .800(優秀) / .900〜(超一流)]
-    * **ISO**: 長打率 － 打率。純粋な「長打力」を測る指標。 [.140(平均) / .200(優秀・長距離砲) / .250〜(超一流)]
+    * **ISO**: 長打率 － 打率。純粋な「長打力」を測る指標. [.140(平均) / .200(優秀・長距離砲) / .250〜(超一流)]
     * **BABIP**: 本塁打・三振を除くグラウンドに飛んだ打球が安打になる確率。 [プロ平均は.300前後に収束。高すぎると運が良い、低すぎると不運]
     * **RC27**: その打者1人で1試合（27アウト）戦った場合の予測総得点。 [4.0〜4.5(平均) / 6.0(優秀) / 8.0〜(リーグ最強クラス)]
     """)
@@ -445,7 +434,7 @@ with col_kings_pit:
         st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">奪三振王</div><div class="trophy-name-luxury-mini">{top_k9["選手名"]}</div><div class="trophy-value-luxury-mini">{top_k9["K/9"]:.2f}</div></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">最高安定感</div><div class="trophy-name-luxury-mini">{top_whip["選手名"]}</div><div class="trophy-value-luxury-mini">{top_whip["WHIP"]:.2f}</div></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">ホールド王</div><div class="trophy-value-luxury-mini">{top_h_str}</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">登板王</div><div class="trophy-name-luxury-mini">{top_g_str}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="trophy-card-luxury-mini"><div class="trophy-title-luxury-mini">登板王</div><div class="trophy-value-luxury-mini">{top_g_str}</div></div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
